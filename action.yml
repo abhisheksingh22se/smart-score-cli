@@ -1,0 +1,107 @@
+name: 'Smart Score Evaluator'
+description: 'Evaluate Solidity smart contracts on Security and Efficiency using a unified research-based framework.'
+inputs:
+  contract-path:
+    description: 'Path to the Solidity smart contract file (used to estimate complexity)'
+    required: false
+    default: 'contracts/Voting.sol'
+  slither-json-path:
+    description: 'Path to the Slither JSON report file'
+    required: false
+    default: 'result/slither_output.json'
+  gas-report-json-path:
+    description: 'Path to the Hardhat gas reporter JSON output file'
+    required: false
+    default: 'hardhat_env/gasReporterOutput.json'
+  fvc:
+    description: 'Formal Verification Coverage percentage (0.0 to 100.0)'
+    required: false
+    default: '0.0'
+  iv:
+    description: 'Manual Invariant Violations count override'
+    required: false
+  gf:
+    description: 'Manual Average Gas per Function override'
+    required: false
+  gv:
+    description: 'Manual Gas Variance override'
+    required: false
+  benchmarks-path:
+    description: 'Path to benchmarks.json file containing min-max boundaries'
+    required: false
+  format:
+    description: 'Output format: markdown (default) or json'
+    required: false
+    default: 'markdown'
+  fail-on-critical:
+    description: 'Fail the workflow if the score is in Critical range (<0.40)'
+    required: false
+    default: 'true'
+outputs:
+  score:
+    description: 'Calculated composite score (0.0 - 1.0)'
+  grade:
+    description: 'Qualitative rating (Excellent, Good, Fair, Poor, Critical)'
+  security-score:
+    description: 'Calculated sub-component security score (0.0 - 1.0)'
+  efficiency-score:
+    description: 'Calculated sub-component efficiency score (0.0 - 1.0)'
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        python3 -m pip install --upgrade pip
+        python3 -m pip install -r ${{ github.action_path }}/requirements.txt
+
+    - name: Run Smart Score evaluation CLI
+      shell: bash
+      id: run-evaluation
+      run: |
+        # Construct CLI arguments dynamically
+        ARGS="--contract-path '${{ inputs.contract-path }}'"
+        
+        if [ -n "${{ inputs.slither-json-path }}" ] && [ -f "${{ inputs.slither-json-path }}" ]; then
+          ARGS="$ARGS --slither-json '${{ inputs.slither-json-path }}'"
+        fi
+        
+        if [ -n "${{ inputs.gas-report-json-path }}" ] && [ -f "${{ inputs.gas-report-json-path }}" ]; then
+          ARGS="$ARGS --gas-json '${{ inputs.gas-report-json-path }}'"
+        fi
+
+        if [ -n "${{ inputs.fvc }}" ]; then
+          ARGS="$ARGS --fvc '${{ inputs.fvc }}'"
+        fi
+
+        if [ -n "${{ inputs.iv }}" ]; then
+          ARGS="$ARGS --iv '${{ inputs.iv }}'"
+        fi
+
+        if [ -n "${{ inputs.gf }}" ]; then
+          ARGS="$ARGS --gf '${{ inputs.gf }}'"
+        fi
+
+        if [ -n "${{ inputs.gv }}" ]; then
+          ARGS="$ARGS --gv '${{ inputs.gv }}'"
+        fi
+
+        if [ -n "${{ inputs.benchmarks-path }}" ]; then
+          ARGS="$ARGS --benchmarks '${{ inputs.benchmarks-path }}'"
+        else
+          ARGS="$ARGS --benchmarks '${{ github.action_path }}/config/benchmarks.json'"
+        fi
+
+        ARGS="$ARGS --format '${{ inputs.format }}'"
+        
+        if [ "${{ inputs.fail-on-critical }}" = "false" ]; then
+          ARGS="$ARGS --no-fail"
+        fi
+
+        # Run CLI and write to GitHub env outputs
+        PYTHONPATH=${{ github.action_path }} python3 ${{ github.action_path }}/src/cli.py $ARGS
