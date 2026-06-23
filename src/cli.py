@@ -63,7 +63,7 @@ def cli(contract_path: str,
         format: str,
         fail_on_critical: bool):
     """
-    🎓 Smart Score CLI
+    Smart Score CLI
     Evaluates Ethereum smart contracts against security and efficiency benchmarks in CI/CD pipelines.
     """
     # 1. Load configuration bounds
@@ -96,7 +96,7 @@ def cli(contract_path: str,
             TC=tc_score
         )
     except Exception as e:
-        print(f"❌ Input validation failed: {e}", file=sys.stderr)
+        print(f" Input validation failed: {e}", file=sys.stderr)
         sys.exit(2)
 
     # 4. Execute calculations in the Engine
@@ -114,10 +114,10 @@ def cli(contract_path: str,
     # 6. Quality Gate enforcement
     if result["status"] == "FAIL":
         if fail_on_critical:
-            print("\n❌ [DEPLOYMENT BLOCK] Smart Score is Critical (< 0.40). Terminating workflow build.", file=sys.stderr)
+            print("\n [DEPLOYMENT BLOCK] Smart Score is Critical (< 0.40). Terminating workflow build.", file=sys.stderr)
             sys.exit(1)
         else:
-            print("\n⚠️ [WARNING] Smart Score is Critical (< 0.40) but bypass is enabled (--no-fail).", file=sys.stderr)
+            print("\n [WARNING] Smart Score is Critical (< 0.40) but bypass is enabled (--no-fail).", file=sys.stderr)
 
 if __name__ == '__main__':
     cli()

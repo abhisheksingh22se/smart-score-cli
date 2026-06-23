@@ -95,30 +95,77 @@ Integrate the evaluator directly in your automated validation workflows (`.githu
 ```yaml
 name: Smart Contract Scoring Audit
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      fvc:
+        description: 'Formal Verification Coverage %'
+        required: false
+        default: '0.0'
 
 jobs:
   evaluate:
+    name: 🎓 Smart Score Evaluation
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
 
-      # Setup Slither & compile contracts
+    steps:
+      # 1. Checkout 
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Setup Node.js for Hardhat 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: hardhat_env/package-lock.json
+
+      # 3. Install Hardhat dependencies 
+      - name: Install Hardhat dependencies
+        run: |
+          cd hardhat_env
+          npm ci
+
+      # 4. Run Slither static analysis 
       - name: Run Slither Analyzer
-        uses: crytic/slither-action@v0.11.0
+        uses: crytic/slither-action@v0.4.0
         continue-on-error: true
         with:
           target: 'contracts/'
-          json: 'result/slither_output.json'
+          slither-args: '--json result/slither_output.json'
 
-      # Run smart score CLI
+      # 5. Run Hardhat gas profiling 
+      - name: Run Hardhat Gas Profiling
+        run: |
+          mkdir -p result
+          mkdir -p hardhat_env/contracts
+          cp contracts/Voting.sol hardhat_env/contracts/Voting.sol
+          cd hardhat_env
+          npx hardhat run profile.js --network hardhat
+
+      # 6. Run Smart Score Evaluator 
       - name: Run Smart Score Evaluator
-        uses: ./smart-score-cli
+        id: smart-score
+        uses: ./
         with:
           contract-path: 'contracts/Voting.sol'
           slither-json-path: 'result/slither_output.json'
           gas-report-json-path: 'hardhat_env/gasReporterOutput.json'
-          fvc: '80.0' # Passed from symbolic tests or verification coverage
+          fvc: ${{ github.event.inputs.fvc || '0.0' }}
           fail-on-critical: 'true'
+
+      # 7. Print results 
+      - name: Print Score Summary
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🏆 Final Score    : ${{ steps.smart-score.outputs.score }}"
+          echo "🎓 Grade          : ${{ steps.smart-score.outputs.grade }}"
+          echo "🛡️  Security Score : ${{ steps.smart-score.outputs.security-score }}"
+          echo "⚡ Efficiency Score: ${{ steps.smart-score.outputs.efficiency-score }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ```

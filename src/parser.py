@@ -18,11 +18,11 @@ class SmartScoreParser:
         results = {"V": 0, "IV": 0}
         
         if not filepath:
-            print("⚠️ No Slither JSON filepath provided. Using default metrics (0 vulnerabilities).", file=sys.stderr)
+            print(" No Slither JSON filepath provided. Using default metrics (0 vulnerabilities).", file=sys.stderr)
             return results
 
         if not os.path.exists(filepath):
-            print(f"⚠️ Slither JSON file not found at: {filepath}. Using default metrics (0 vulnerabilities).", file=sys.stderr)
+            print(f" Slither JSON file not found at: {filepath}. Using default metrics (0 vulnerabilities).", file=sys.stderr)
             return results
 
         try:
@@ -51,7 +51,7 @@ class SmartScoreParser:
             results["IV"] = iv_count
 
         except (json.JSONDecodeError, KeyError, TypeError) as e:
-            print(f"⚠️ Error parsing Slither JSON: {e}. Defaulting to 0 vulnerabilities/invariants.", file=sys.stderr)
+            print(f" Error parsing Slither JSON: {e}. Defaulting to 0 vulnerabilities/invariants.", file=sys.stderr)
 
         return results
 
@@ -64,7 +64,7 @@ class SmartScoreParser:
         default_complexity = 1
         
         if not solidity_path or not os.path.exists(solidity_path):
-            print(f"⚠️ Solidity source file not found at: {solidity_path}. Defaulting complexity to 1.", file=sys.stderr)
+            print(f" Solidity source file not found at: {solidity_path}. Defaulting complexity to 1.", file=sys.stderr)
             return default_complexity
 
         try:
@@ -102,7 +102,7 @@ class SmartScoreParser:
                 return 5
 
         except Exception as e:
-            print(f"⚠️ Error reading Solidity file for complexity analysis: {e}. Defaulting complexity to 1.", file=sys.stderr)
+            print(f" Error reading Solidity file for complexity analysis: {e}. Defaulting complexity to 1.", file=sys.stderr)
             return default_complexity
 
     @staticmethod
@@ -123,7 +123,7 @@ class SmartScoreParser:
             # Extract methods data
             methods = data.get("data", {}).get("methods", {})
             if not methods:
-                print("⚠️ Hardhat gas reporter JSON found, but data.methods is empty.", file=sys.stderr)
+                print(" Hardhat gas reporter JSON found, but data.methods is empty.", file=sys.stderr)
                 return results
 
             gas_values = []
@@ -133,7 +133,7 @@ class SmartScoreParser:
                 gas_values.extend([g for g in gas_data if isinstance(g, (int, float))])
 
             if not gas_values:
-                print("⚠️ Hardhat gas reporter JSON found, but no gas measurements were found in tests.", file=sys.stderr)
+                print(" Hardhat gas reporter JSON found, but no gas measurements were found in tests.", file=sys.stderr)
                 return results
 
             # Compute average gas cost per function execution (GF)
@@ -147,6 +147,6 @@ class SmartScoreParser:
             results["GV"] = variance
 
         except Exception as e:
-            print(f"⚠️ Error parsing Hardhat gas report JSON: {e}. Hardhat gas reporter will be bypassed.", file=sys.stderr)
+            print(f" Error parsing Hardhat gas report JSON: {e}. Hardhat gas reporter will be bypassed.", file=sys.stderr)
 
         return results

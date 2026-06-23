@@ -129,5 +129,5 @@ runs:
 
         # Quality gate re-run with original args to respect fail-on-critical
         if [ "${{ inputs.fail-on-critical }}" != "false" ]; then
-          PYTHONPATH=. python3 -m src.cli "${ARGS[@]}" --format json > /dev/null
+          PYTHONPATH=.python3 -m src.cli "${ARGS[@]}" --format json > /dev/null
         fi
