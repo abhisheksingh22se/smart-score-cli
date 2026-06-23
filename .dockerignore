@@ -1,0 +1,8 @@
+.venv/
+.git/
+.github/
+__pycache__/
+*.pyc
+result/
+node_modules/
+hardhat_env/node_modules/

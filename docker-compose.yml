@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  smart-score:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: smart-score-cli:latest
+    container_name: smart-score-evaluator
+    volumes:
+      - ./contracts:/app/contracts
+      - ./result:/app/result
+      - ./src:/app/src
+    environment:
+      - PYTHONWARNINGS="ignore::DeprecationWarning"
