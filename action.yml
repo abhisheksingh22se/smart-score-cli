@@ -110,7 +110,7 @@ runs:
 
         # Running markdown report for human-readable output 
         ARGS+=("--format" "markdown")
-        PYTHONPATH=.python3 -m src.cli "${ARGS[@]}"
+        PYTHONPATH=. python3 -m src.cli "${ARGS[@]}"
 
         # Running JSON report separately to capture outputs 
         JSON_ARGS=("${ARGS[@]}")
@@ -118,7 +118,7 @@ runs:
         JSON_ARGS[-1]="json"
         JSON_ARGS[-2]="--format"
 
-        JSON_OUTPUT=$(PYTHONPATH=.python3 -m src.cli "${JSON_ARGS[@]}" --no-fail 2>/dev/null)
+        JSON_OUTPUT=$(PYTHONPATH=. python3 -m src.cli "${JSON_ARGS[@]}" --no-fail 2>/dev/null)
 
         # Writing outputs to GITHUB_OUTPUT 
         echo "score=$(echo "$JSON_OUTPUT"        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['final_score'])")"      >> $GITHUB_OUTPUT
@@ -128,5 +128,5 @@ runs:
 
         # Quality gate re-run with original args to respect fail-on-critical
         if [ "${{ inputs.fail-on-critical }}" != "false" ]; then
-          PYTHONPATH=.python3 -m src.cli "${ARGS[@]}" --format json > /dev/null
+          PYTHONPATH=. python3 -m src.cli "${ARGS[@]}" --format json > /dev/null
         fi
