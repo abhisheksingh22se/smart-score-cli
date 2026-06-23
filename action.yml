@@ -1,8 +1,9 @@
 name: 'Smart Score Evaluator'
 description: 'Evaluate Solidity smart contracts on Security and Efficiency using a unified research-based framework.'
+
 inputs:
   contract-path:
-    description: 'Path to the Solidity smart contract file (used to estimate complexity)'
+    description: 'Path to the Solidity smart contract file'
     required: false
     default: 'contracts/Voting.sol'
   slither-json-path:
@@ -27,25 +28,31 @@ inputs:
     description: 'Manual Gas Variance override'
     required: false
   benchmarks-path:
-    description: 'Path to benchmarks.json file containing min-max boundaries'
+    description: 'Path to benchmarks.json file'
     required: false
   format:
     description: 'Output format: markdown (default) or json'
     required: false
     default: 'markdown'
   fail-on-critical:
-    description: 'Fail the workflow if the score is in Critical range (<0.40)'
+    description: 'Fail the workflow if score is Critical (<0.40)'
     required: false
     default: 'true'
+
 outputs:
   score:
     description: 'Calculated composite score (0.0 - 1.0)'
+    value: ${{ steps.run-evaluation.outputs.score }}
   grade:
     description: 'Qualitative rating (Excellent, Good, Fair, Poor, Critical)'
+    value: ${{ steps.run-evaluation.outputs.grade }}
   security-score:
-    description: 'Calculated sub-component security score (0.0 - 1.0)'
+    description: 'Calculated security sub-score (0.0 - 1.0)'
+    value: ${{ steps.run-evaluation.outputs.security_score }}
   efficiency-score:
-    description: 'Calculated sub-component efficiency score (0.0 - 1.0)'
+    description: 'Calculated efficiency sub-score (0.0 - 1.0)'
+    value: ${{ steps.run-evaluation.outputs.efficiency_score }}
+
 runs:
   using: 'composite'
   steps:
@@ -64,44 +71,63 @@ runs:
       shell: bash
       id: run-evaluation
       run: |
-        # Construct CLI arguments dynamically
-        ARGS="--contract-path '${{ inputs.contract-path }}'"
-        
-        if [ -n "${{ inputs.slither-json-path }}" ] && [ -f "${{ inputs.slither-json-path }}" ]; then
-          ARGS="$ARGS --slither-json '${{ inputs.slither-json-path }}'"
+        ARGS=()
+        ARGS+=("--contract-path" "${{ inputs.contract-path }}")
+
+        if [ -f "${{ inputs.slither-json-path }}" ]; then
+          ARGS+=("--slither-json" "${{ inputs.slither-json-path }}")
         fi
-        
-        if [ -n "${{ inputs.gas-report-json-path }}" ] && [ -f "${{ inputs.gas-report-json-path }}" ]; then
-          ARGS="$ARGS --gas-json '${{ inputs.gas-report-json-path }}'"
+
+        if [ -f "${{ inputs.gas-report-json-path }}" ]; then
+          ARGS+=("--gas-json" "${{ inputs.gas-report-json-path }}")
         fi
 
         if [ -n "${{ inputs.fvc }}" ]; then
-          ARGS="$ARGS --fvc '${{ inputs.fvc }}'"
+          ARGS+=("--fvc" "${{ inputs.fvc }}")
         fi
 
         if [ -n "${{ inputs.iv }}" ]; then
-          ARGS="$ARGS --iv '${{ inputs.iv }}'"
+          ARGS+=("--iv" "${{ inputs.iv }}")
         fi
 
         if [ -n "${{ inputs.gf }}" ]; then
-          ARGS="$ARGS --gf '${{ inputs.gf }}'"
+          ARGS+=("--gf" "${{ inputs.gf }}")
         fi
 
         if [ -n "${{ inputs.gv }}" ]; then
-          ARGS="$ARGS --gv '${{ inputs.gv }}'"
+          ARGS+=("--gv" "${{ inputs.gv }}")
         fi
 
         if [ -n "${{ inputs.benchmarks-path }}" ]; then
-          ARGS="$ARGS --benchmarks '${{ inputs.benchmarks-path }}'"
+          ARGS+=("--benchmarks" "${{ inputs.benchmarks-path }}")
         else
-          ARGS="$ARGS --benchmarks '${{ github.action_path }}/config/benchmarks.json'"
+          ARGS+=("--benchmarks" "${{ github.action_path }}/config/benchmarks.json")
         fi
 
-        ARGS="$ARGS --format '${{ inputs.format }}'"
-        
         if [ "${{ inputs.fail-on-critical }}" = "false" ]; then
-          ARGS="$ARGS --no-fail"
+          ARGS+=("--no-fail")
         fi
 
-        # Run CLI and write to GitHub env outputs
-        PYTHONPATH=${{ github.action_path }} python3 ${{ github.action_path }}/src/cli.py $ARGS
+        # Running markdown report for human-readable output 
+        ARGS+=("--format" "markdown")
+        PYTHONPATH=${{ github.action_path }} python3 ${{ github.action_path }}/src/cli.py "${ARGS[@]}"
+
+        # Running JSON report separately to capture outputs 
+        JSON_ARGS=("${ARGS[@]}")
+        # Replace markdown with json
+        JSON_ARGS[-1]="json"
+        JSON_ARGS[-2]="--format"
+
+        JSON_OUTPUT=$(PYTHONPATH=${{ github.action_path }} python3 \
+          ${{ github.action_path }}/src/cli.py "${JSON_ARGS[@]}" --no-fail 2>/dev/null)
+
+        # Writing outputs to GITHUB_OUTPUT 
+        echo "score=$(echo "$JSON_OUTPUT"        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['final_score'])")"      >> $GITHUB_OUTPUT
+        echo "grade=$(echo "$JSON_OUTPUT"        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['grade'])")"            >> $GITHUB_OUTPUT
+        echo "security_score=$(echo "$JSON_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['security_score'])")" >> $GITHUB_OUTPUT
+        echo "efficiency_score=$(echo "$JSON_OUTPUT"| python3 -c "import sys,json; d=json.load(sys.stdin); print(d['efficiency_score'])")" >> $GITHUB_OUTPUT
+
+        # Quality gate re-run with original args to respect fail-on-critical
+        if [ "${{ inputs.fail-on-critical }}" != "false" ]; then
+          PYTHONPATH=.python3 -m src.cli "${ARGS[@]}" --format json > /dev/null
+        fi

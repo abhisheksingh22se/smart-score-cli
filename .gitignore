@@ -1,0 +1,56 @@
+# Python 
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Node / Hardhat
+node_modules/
+hardhat_env/node_modules/
+hardhat_env/artifacts/
+hardhat_env/cache/
+hardhat_env/contracts/        
+coverage/
+coverage.json
+typechain/
+typechain-types/
+
+# Terraform 
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfvars 
+crash.log
+override.tf
+
+# Smart Score Results
+result/
+hardhat_env/gasReporterOutput.json
+
+# Environment & Secrets
+.env
+.env.*
+*.pem
+*.key
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.antigravity/
+*.swp
+*.swo

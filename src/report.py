@@ -36,9 +36,9 @@ class SmartScoreReport:
 
         # Summary Component Table
         summary_rows = [
-            ["🛡️ Security Score", f"{result['security_score']:.4f}", "60%"],
-            ["⚡ Efficiency Score", f"{result['efficiency_score']:.4f}", "40%"],
-            ["🏆 Final Composite Score", f"**{final_score:.4f}**", "100%"]
+            [" Security Score", f"{result['security_score']:.4f}", "60%"],
+            [" Efficiency Score", f"{result['efficiency_score']:.4f}", "40%"],
+            [" Final Composite Score", f"**{final_score:.4f}**", "100%"]
         ]
         summary_headers = ["Component", "Score (0-1)", "Weight"]
         summary_table = tabulate(summary_rows, headers=summary_headers, tablefmt="github")
@@ -61,10 +61,10 @@ class SmartScoreReport:
         breakdown_table = tabulate(breakdown_rows, headers=breakdown_headers, tablefmt="github")
 
         report = f"""
-# 🎓 Smart Score Audit Report
+# Smart Score Audit Report
 Evaluate contract using the **Unified Security & Efficiency Evaluation Framework**.
 
-## 📊 Executive Summary
+## Executive Summary
 {summary_table}
 
 **Rating Result:** `{grade}`
@@ -72,7 +72,7 @@ Evaluate contract using the **Unified Security & Efficiency Evaluation Framework
 
 ---
 
-## 🔍 Deep Dive Metric Analysis
+## Deep Dive Metric Analysis
 {breakdown_table}
 """
         return report

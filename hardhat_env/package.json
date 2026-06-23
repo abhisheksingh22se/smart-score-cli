@@ -1,0 +1,9 @@
+{
+  "name": "hardhat-env",
+  "version": "1.0.0",
+  "description": "Hardhat gas profiling environment",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.4"
+  }
+}

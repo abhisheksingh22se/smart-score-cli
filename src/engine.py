@@ -81,7 +81,7 @@ class SmartScoreEngine:
 
         norm_GF = self.inverse_normalize(metrics.GF, *self.benchmarks.GF)
         norm_GV = self.inverse_normalize(metrics.GV, *self.benchmarks.GV)
-        norm_TC = self.normalize(metrics.TC, *self.benchmarks.TC)
+        norm_TC = self.inverse_normalize(metrics.TC, *self.benchmarks.TC)
         norm_TP = self.normalize(metrics.TP, *self.benchmarks.TP)
 
         # --- Component Scoring ---
