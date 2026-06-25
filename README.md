@@ -1,171 +1,247 @@
 # 🛡️ Smart Score CLI & GitHub Action
 
-Evaluating Solidity smart contracts by integrating **Security** and **Efficiency** metrics into a single unified scoring system. 
+A **Web3 DevSecOps** evaluation tool that audits Solidity smart contracts by integrating **Security** and **Efficiency** metrics into a unified composite score — fully automatable in CI/CD pipelines.
 
-Based on research from the thesis papers:
+Based on original research from:
 1. *"Smart Contract Measurement Methodology: Extracting and Analyzing Key Performance Indicators"*
 2. *"Smart Contract Scoring Framework: Integrating Security and Efficiency Metrics into a Unified Evaluation Model"*
 
 ---
 
-## 📈 Scoring Methodology & Mathematics
+## 📁 Project Structure
 
-The evaluation framework measures contracts across two core dimensions:
+```
+smart-score-cli/
+├── .github/workflows/audit.yml    # GitHub Actions CI/CD workflow
+├── config/benchmarks.json         # Historical min-max bounds for normalization
+├── contracts/Voting.sol           # Example Solidity smart contract
+├── hardhat_env/                   # Hardhat project for gas profiling
+├── src/
+│   ├── __init__.py
+│   ├── cli.py                     # CLI entrypoint
+│   ├── engine.py                  # Pydantic models + scoring formulas
+│   ├── parser.py                  # Slither + Hardhat artifact parsers
+│   └── report.py                  # Markdown + JSON report formatters
+├── action.yml                     # Reusable GitHub Action definition
+├── Dockerfile                     # Multi-stage container build
+├── docker-compose.yml             # Local container orchestration
+├── requirements.txt
+└── run_pipeline.sh                # Local + container pipeline runner
+```
 
-### 1. Normalization Layer
-All raw metrics are normalized between `0.0` and `1.0` using min-max historical bounds:
-* **Regular Normalization** (higher is better, e.g., Formal Verification Coverage):
-  $$x^* = \frac{x - x_{min}}{x_{max} - x_{min}}$$
-* **Inverted Normalization** (lower is better, e.g., Vulnerability Counts, Gas Costs, Invariant Violations):
-  $$x^* = 1 - \frac{x - x_{min}}{x_{max} - x_{min}}$$
-* Normalized metrics are clipped to $[0.0, 1.0]$ to prevent boundary spillover.
+---
 
-### 2. Component Scoring Equations
-* **Security Score ($S$)**:
-  $$S = (0.5 \cdot V^*) + (0.3 \cdot FVC^+) + (0.2 \cdot IV^*)$$
-  * $V^*$: Inverted normalized high-severity vulnerability count
-  * $FVC^+$: Normalized formal verification coverage percentage (e.g. 0-100)
-  * $IV^*$: Inverted normalized invariant violations (unreachable statements)
-* **Efficiency Score ($E$)**:
-  $$E = (0.35 \cdot GF^*) + (0.25 \cdot GV^*) + (0.25 \cdot TC^*) + (0.15 \cdot TP^+)$$
-  * $GF^*$: Inverted normalized average function gas
-  * $GV^*$: Inverted normalized variance of gas costs
-  * $TC^*$: Normalized categorical complexity rating (1-5 range)
-  * $TP^+$: Normalized throughput (derived as $\frac{\text{Block Gas Limit}}{GF}$)
+## 📈 Scoring Methodology
 
-### 3. Final Composite Score & Quality Gates
+### Normalization Layer
+
+**Regular** — higher is better (e.g. Formal Verification Coverage):
+$$x^* = \frac{x - x_{min}}{x_{max} - x_{min}}$$
+
+**Inverted** — lower is better (e.g. Vulnerabilities, Gas Costs):
+$$x^* = 1 - \frac{x - x_{min}}{x_{max} - x_{min}}$$
+
+### Component Scores
+
+$$S = (0.5 \cdot V^*) + (0.3 \cdot FVC^+) + (0.2 \cdot IV^*)$$
+
+$$E = (0.35 \cdot GF^*) + (0.25 \cdot GV^*) + (0.25 \cdot TC^*) + (0.15 \cdot TP^+)$$
+
+### Final Composite Score & Quality Gates
+
 $$\text{Final Score} = (0.6 \cdot S) + (0.4 \cdot E)$$
 
-| Final Score Range | Grade | Action Status | Build Pipeline Behavior |
-| :--- | :--- | :--- | :--- |
-| $\ge 0.90$ | `Excellent` | `PASS` | Allowed to proceed. |
-| $0.75 - 0.89$ | `Good` | `PASS` | Allowed to proceed (Production Suitable). |
-| $0.60 - 0.74$ | `Fair` | `PASS` | Allowed to proceed (Review Recommended). |
-| $0.40 - 0.59$ | `Poor` | `WARN` | Allowed to proceed with warnings. |
-| $< 0.40$ | `Critical` | `FAIL` | **Blocked** (CLI exits with code `1`). |
+| Score Range | Grade | Status | Pipeline Behavior |
+|:---|:---|:---|:---|
+| ≥ 0.90 | `Excellent` | `PASS` | Deployment allowed |
+| 0.75 – 0.89 | `Good` | `PASS` | Deployment allowed |
+| 0.60 – 0.74 | `Fair` | `PASS` | Review recommended |
+| 0.40 – 0.59 | `Poor` | `WARN` | Allowed with warnings |
+| < 0.40 | `Critical` | `FAIL` | **Deployment blocked** — exits code `1` |
 
 ---
 
-## 🛠️ CLI Usage & Instructions
+## 🚀 Quickstart
 
-### Installation
+### Option A — Local Shell
 
-Install dependencies locally using python:
 ```bash
-cd smart-score-cli
+# install dependencies
 pip install -r requirements.txt
+solc-select install 0.8.20 && solc-select use 0.8.20
+cd hardhat_env && npm install && cd ..
+
+# run pipeline
+./run_pipeline.sh contracts/Voting.sol
+
+# with Formal Verification Coverage override
+./run_pipeline.sh contracts/Voting.sol 75.0
 ```
 
-### Running Locally
+### Option B — Docker
 
-Execute the tool using the module flag:
 ```bash
-python3 -m src.cli --contract-path contracts/Voting.sol \
-                   --slither-json result/slither_output.json
+# build
+docker build -t smart-score-cli:latest .
+
+# run
+docker run --rm \
+  -v $(pwd)/contracts:/app/contracts \
+  -v $(pwd)/result:/app/result \
+  smart-score-cli:latest contracts/Voting.sol 75.0
+
+# or with docker-compose
+docker-compose up
 ```
 
-### CLI CLI Parameter reference:
-```
-Options:
-  -c, --contract-path PATH      Path to target Solidity smart contract (used to
-                                estimate time complexity). Default:
-                                contracts/Voting.sol
-  -s, --slither-json PATH       Path to Slither JSON report. Default:
-                                result/slither_output.json
-  -g, --gas-json PATH           Path to Hardhat gas reporter JSON output.
-                                Default: hardhat_env/gasReporterOutput.json
-  -f, --fvc FLOAT               Formal Verification Coverage percentage override
-                                (0.0 to 100.0). Default: 0.0
-  -i, --iv INTEGER              Invariant Violations count override.
-  --gf FLOAT                    Average Function Gas override.
-  --gv FLOAT                    Gas Variance override.
-  -b, --benchmarks PATH         Path to custom benchmarks config JSON file.
-  -o, --format [markdown|json]  Output formatting: markdown (default) or json.
-  --fail-on-critical / --no-fail
-                                Exit with status code 1 if final score is in
-                                Critical range (<0.40). Default is True.
+### Option C — CLI Directly
+
+```bash
+python3 -m src.cli \
+  --contract-path contracts/Voting.sol \
+  --slither-json  result/slither_output.json \
+  --gas-json      hardhat_env/gasReporterOutput.json \
+  --fvc           75.0 \
+  --format        markdown
 ```
 
 ---
 
-## 🐙 GitHub Action CI/CD Integration
+## 🐳 Docker Multi-Stage Build
 
-Integrate the evaluator directly in your automated validation workflows (`.github/workflows/audit.yml`):
+```
+Stage 1: builder
+├── Install build tools + Node.js
+├── pip install dependencies
+└── npm ci (Hardhat)
+        │
+        └── COPY --from=builder
+                │
+Stage 2: runtime
+├── Node.js + git only
+├── Python packages (from builder)
+├── Hardhat node_modules (from builder)
+├── solc-select + solc 0.8.20
+└── Project source
+```
+
+Build tools are discarded in the final image — smaller size, reduced attack surface.
+
+---
+
+## ⚙️ CLI Reference
+
+| Option | Description | Default |
+|:---|:---|:---|
+| `-c, --contract-path` | Path to Solidity contract | `contracts/Voting.sol` |
+| `-s, --slither-json` | Path to Slither JSON report | `result/slither_output.json` |
+| `-g, --gas-json` | Path to Hardhat gas report | `hardhat_env/gasReporterOutput.json` |
+| `-f, --fvc` | Formal Verification Coverage % | `0.0` |
+| `-i, --iv` | Invariant Violations override | — |
+| `--gf` | Avg Gas per Function override | — |
+| `--gv` | Gas Variance override | — |
+| `-b, --benchmarks` | Path to custom benchmarks.json | built-in |
+| `-o, --format` | `markdown` or `json` | `markdown` |
+| `--fail-on-critical / --no-fail` | Block pipeline if score < 0.40 | `True` |
+
+---
+
+## 🐙 GitHub Action Integration
+
+Add to `.github/workflows/audit.yml` in your repo. The workflow:
+1. Runs **Slither** static analysis → `result/slither_output.json`
+2. Runs **Hardhat** gas profiling → `hardhat_env/gasReporterOutput.json`
+3. Calls this action → calculates and outputs the Smart Score
 
 ```yaml
-name: Smart Contract Scoring Audit
+- name: Run Smart Score Evaluator
+  id: smart-score
+  uses: YOUR_ORG/smart-score-cli@main
+  with:
+    contract-path: 'contracts/Voting.sol'
+    slither-json-path: 'result/slither_output.json'
+    gas-report-json-path: 'hardhat_env/gasReporterOutput.json'
+    fvc: '80.0'
+    fail-on-critical: 'true'
+```
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      fvc:
-        description: 'Formal Verification Coverage %'
-        required: false
-        default: '0.0'
+### Action Inputs
 
-jobs:
-  evaluate:
-    name: 🎓 Smart Score Evaluation
-    runs-on: ubuntu-latest
+| Input | Description | Default |
+|:---|:---|:---|
+| `contract-path` | Path to Solidity contract | `contracts/Voting.sol` |
+| `slither-json-path` | Slither JSON report path | `result/slither_output.json` |
+| `gas-report-json-path` | Hardhat gas report path | `hardhat_env/gasReporterOutput.json` |
+| `fvc` | Formal Verification Coverage % | `0.0` |
+| `fail-on-critical` | Block pipeline if Critical | `true` |
 
-    steps:
-      # 1. Checkout 
-      - name: Checkout Code
-        uses: actions/checkout@v4
+### Action Outputs
 
-      # 2. Setup Node.js for Hardhat 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: hardhat_env/package-lock.json
+| Output | Description |
+|:---|:---|
+| `score` | Final composite score (0.0–1.0) |
+| `grade` | Qualitative grade |
+| `security-score` | Security sub-score |
+| `efficiency-score` | Efficiency sub-score |
 
-      # 3. Install Hardhat dependencies 
-      - name: Install Hardhat dependencies
-        run: |
-          cd hardhat_env
-          npm ci
+---
 
-      # 4. Run Slither static analysis 
-      - name: Run Slither Analyzer
-        uses: crytic/slither-action@v0.4.0
-        continue-on-error: true
-        with:
-          target: 'contracts/'
-          slither-args: '--json result/slither_output.json'
+## 📊 Example Output
 
-      # 5. Run Hardhat gas profiling 
-      - name: Run Hardhat Gas Profiling
-        run: |
-          mkdir -p result
-          mkdir -p hardhat_env/contracts
-          cp contracts/Voting.sol hardhat_env/contracts/Voting.sol
-          cd hardhat_env
-          npx hardhat run profile.js --network hardhat
+```
+# Smart Score Audit Report
 
-      # 6. Run Smart Score Evaluator 
-      - name: Run Smart Score Evaluator
-        id: smart-score
-        uses: ./
-        with:
-          contract-path: 'contracts/Voting.sol'
-          slither-json-path: 'result/slither_output.json'
-          gas-report-json-path: 'hardhat_env/gasReporterOutput.json'
-          fvc: ${{ github.event.inputs.fvc || '0.0' }}
-          fail-on-critical: 'true'
+## Executive Summary
 
-      # 7. Print results 
-      - name: Print Score Summary
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🏆 Final Score    : ${{ steps.smart-score.outputs.score }}"
-          echo "🎓 Grade          : ${{ steps.smart-score.outputs.grade }}"
-          echo "🛡️  Security Score : ${{ steps.smart-score.outputs.security-score }}"
-          echo "⚡ Efficiency Score: ${{ steps.smart-score.outputs.efficiency-score }}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+| Component             | Score (0-1) | Weight |
+|-----------------------|-------------|--------|
+| Security Score        | 0.7000      | 60%    |
+| Efficiency Score      | 0.5387      | 40%    |
+| Final Composite Score | **0.6355**  | 100%   |
+
+Rating Result: `Fair`
+Status: 🟢 PASS
+```
+
+---
+
+## 🔧 Benchmarks Configuration
+
+Customize normalization bounds in `config/benchmarks.json`:
+
+```json
+{
+  "V":   [0, 10],
+  "FVC": [0.0, 100.0],
+  "IV":  [0, 10],
+  "GF":  [20000, 70000],
+  "GV":  [1000, 10000],
+  "TC":  [1, 5],
+  "TP":  [300, 1000]
+}
+```
+
+Pass a custom file at runtime: `--benchmarks path/to/benchmarks.json`
+
+---
+
+## 📦 Dependencies
+
+| Tool | Purpose |
+|:---|:---|
+| `click` | CLI argument parsing |
+| `pydantic` | Data validation |
+| `tabulate` | Markdown table formatting |
+| `slither-analyzer` | Static vulnerability analysis |
+| `solc-select` | Solidity compiler management |
+| `hardhat` | Gas profiling |
+
+---
+
+## 🤝 Contributing
+
+```bash
+git checkout -b feature/your-feature
+git commit -m "feat: describe your change"
+git push origin feature/your-feature
 ```
