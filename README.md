@@ -43,9 +43,9 @@ $$x^* = 1 - \frac{x - x_{min}}{x_{max} - x_{min}}$$
 
 ### Component Scores
 
-$$S = (0.5 \cdot V^*) + (0.3 \cdot FVC^+) + (0.2 \cdot IV^*)$$
+$$S = (0.5 \cdot V^{\ast}) + (0.3 \cdot FVC^{\ast}) + (0.2 \cdot IV^{\ast})$$
 
-$$E = (0.35 \cdot GF^*) + (0.25 \cdot GV^*) + (0.25 \cdot TC^*) + (0.15 \cdot TP^+)$$
+$$E = (0.35 \cdot GF^{\ast}) + (0.25 \cdot GV^{\ast}) + (0.25 \cdot TC^{\ast}) + (0.15 \cdot TP^{\ast})$$
 
 ### Final Composite Score & Quality Gates
 
